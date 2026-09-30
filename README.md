@@ -155,7 +155,7 @@ In URL-only shared mode, the bridge uses Streamable HTTP directly instead:
 ```
 
 - **Persistent bridge** — a detached process keeps the selected MCP session alive across commands, so Chrome doesn't restart every invocation
-- **Auto-lifecycle** — the bridge starts on first command, writes a PID file to `~/.chrome-devtools-axi/bridge.pid`, and is reused only after a deep health check (`/health?deep=1`, one CDP `list_pages`). A bridge whose browser has died is terminated and respawned. Startup waits until `CHROME_DEVTOOLS_AXI_BRIDGE_TIMEOUT_MS` (default 30s). On stop, the bridge kills its process group; teardown escalates SIGTERM to SIGKILL, and only when `ps` confirms that PID is a bridge, so stdio-launched chrome-devtools-mcp and Chrome children are reaped. A bridge also shuts itself down when its stdio chrome-devtools-mcp process exits, since it can serve nothing without it.
+- **Auto-lifecycle** — the bridge starts on first command, writes a PID file to `~/.chrome-devtools-axi/bridge.pid`, and is reused only after a deep health check (`/health?deep=1`, one CDP `list_pages`). A bridge whose browser has died is terminated and respawned. Startup waits until `CHROME_DEVTOOLS_AXI_BRIDGE_TIMEOUT_MS` (default 30s). On stop, the bridge kills its process group; teardown escalates SIGTERM to SIGKILL, and only when `ps` confirms that PID is a bridge, so stdio-launched chrome-devtools-mcp and Chrome children are reaped. A bridge also shuts itself down when its stdio chrome-devtools-mcp process exits, since it can serve nothing without it. Otherwise it runs until `stop` unless you opt into an [idle timeout](#idle-timeout).
 - **Snapshot parsing** — accessibility tree snapshots are extracted and analyzed for interactive elements (`uid=` refs)
 - **TOON encoding** — structured metadata uses [TOON format](https://www.npmjs.com/package/@toon-format/toon) for compact, token-efficient output
 
@@ -419,6 +419,21 @@ The default (unset) session keeps port 9224 and the legacy state paths below.
 
 Do not export `CHROME_DEVTOOLS_AXI_PORT` globally when running concurrent sessions: it overrides the per-session derived port and forces every session onto the same port, so the second session fails to start - its bridge cannot bind the already-taken port, and the first session's bridge is rejected as a mismatch rather than silently shared.
 Rely on the per-session default ports instead, or set `CHROME_DEVTOOLS_AXI_PORT` only inline per command.
+
+### Idle timeout
+
+A bridge runs until `chrome-devtools-axi stop` by default, because it is detached from the shell or agent session that started it.
+To have bridges clean up after sessions that never run `stop`, opt into an idle timeout in milliseconds:
+
+```sh
+export CHROME_DEVTOOLS_AXI_IDLE_TIMEOUT_MS=1800000   # 30 minutes
+```
+
+A bridge started with it set shuts itself down, together with the chrome-devtools-mcp process and any browser it launched, once that long passes with no command and no request in flight.
+Every command that talks to the browser counts as activity; the ambient page summary that `setup hooks` shows at agent session start does not, so starting new agent sessions does not keep an abandoned bridge alive.
+The next command after a shutdown starts a fresh bridge, so pages and state of a browser this tool launched are lost, as after `stop`.
+Unset, blank, or `0` keeps the default; values below `1000` are raised to `1000`, and a value that is not a whole number of milliseconds is ignored.
+A running bridge keeps the setting it started with.
 
 State is stored in `~/.chrome-devtools-axi/` (named sessions nest under `sessions/<name>/`):
 

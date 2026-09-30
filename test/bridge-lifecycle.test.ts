@@ -8,7 +8,8 @@ import { afterEach, describe, expect, it } from "vitest";
 /**
  * Runs the real bridge process, detached as `ensureBridge` spawns it, against
  * a fake stdio MCP server (`fixtures/fake-mcp-server.mjs`) so its lifecycle can
- * be observed without launching a browser.
+ * be observed without launching a browser. Unit coverage of the idle rules
+ * lives in `test/idle.test.ts`; this file proves the process actually exits.
  */
 
 const ROOT = resolve(import.meta.dirname, "..");
@@ -141,6 +142,26 @@ describe("bridge process lifecycle", () => {
     expect(isAlive(running.mcpPid)).toBe(true);
     expect(existsSync(running.pidFile)).toBe(true);
   }, 20_000);
+
+  it("shuts down after CHROME_DEVTOOLS_AXI_IDLE_TIMEOUT_MS with no requests", async () => {
+    const running = await startBridge({
+      CHROME_DEVTOOLS_AXI_IDLE_TIMEOUT_MS: "1000",
+    });
+
+    await expect(
+      withTimeout(running.exited, 8_000, "idle bridge exit"),
+    ).resolves.toBe(0);
+    expect(existsSync(running.pidFile)).toBe(false);
+    await withTimeout(
+      (async () => {
+        while (isAlive(running.mcpPid)) {
+          await new Promise((settle) => setTimeout(settle, 50));
+        }
+      })(),
+      5_000,
+      "MCP server exit after idle shutdown",
+    );
+  }, 30_000);
 
   it("shuts down when its MCP server ends", async () => {
     const running = await startBridge();

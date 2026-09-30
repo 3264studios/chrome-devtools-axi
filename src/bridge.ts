@@ -38,10 +38,17 @@ import {
 import { basename, dirname, isAbsolute, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import {
+  AMBIENT_REQUEST_HEADER,
   BRIDGE_PORT_IN_USE_EXIT_CODE,
   PAGE_IDENTITY_CHANGED_ERROR,
   resolveBridgeScript,
 } from "./bridge-script.js";
+import {
+  createIdleTracker,
+  IDLE_TIMEOUT_ENV,
+  resolveIdleTimeoutMs,
+  type IdleTracker,
+} from "./idle.js";
 import { clearSelectedPageId } from "./selected-page.js";
 import {
   resolveSessionName,
@@ -578,11 +585,22 @@ export async function handleBridgeRequest(
   writeJson(res, 404, { error: "not found" });
 }
 
+/**
+ * Whether a finished request renews an opted-in idle timeout: any request the
+ * anti-rebinding gate accepts, except the CLI's ambient home-view probe.
+ */
+export function isIdleActivity(req: IncomingMessage): boolean {
+  return isRequestAllowed(req) && req.headers[AMBIENT_REQUEST_HEADER] !== "1";
+}
+
 export function createBridgeServer(
   client: BridgeClient,
   sessionName?: string,
+  idle?: IdleTracker,
 ): Server {
   return createServer((req, res) => {
+    const end = idle?.begin();
+    if (end) res.once("close", () => end(isIdleActivity(req)));
     void handleBridgeRequest(
       client,
       req,
@@ -1101,7 +1119,17 @@ export async function runBridge(port = resolveSessionPort()): Promise<void> {
   logBridgeMessage("Connected to chrome-devtools-mcp");
 
   const sessionName = resolveSessionName();
-  const server = createBridgeServer(bridgeClient, sessionName);
+  const idleTimeoutMs = resolveIdleTimeoutMs();
+  const idle =
+    idleTimeoutMs > 0
+      ? createIdleTracker(idleTimeoutMs, () => {
+          logBridgeMessage(
+            `No activity for ${idleTimeoutMs}ms (${IDLE_TIMEOUT_ENV}); shutting down`,
+          );
+          void shutdown();
+        })
+      : undefined;
+  const server = createBridgeServer(bridgeClient, sessionName, idle);
   server.on("error", (error: NodeJS.ErrnoException) => {
     handleBridgeServerError(error, port);
   });
