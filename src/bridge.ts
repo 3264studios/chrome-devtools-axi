@@ -1121,6 +1121,19 @@ export async function runBridge(port = resolveSessionPort()): Promise<void> {
     process.exit(0);
   };
 
+  // Once a stdio chrome-devtools-mcp (local or proxy) is gone - crashed,
+  // killed, or closed its stdio - the bridge can only answer 503, and nothing
+  // else ends a detached process, so exit instead of lingering. The next
+  // command starts a fresh bridge, as `ensureBridge` already did for one left
+  // unhealthy. A direct Streamable HTTP transport reports close only when we
+  // close it. Our own shutdown closes the transport too; `shuttingDown` keeps
+  // that from logging.
+  client.onclose = () => {
+    if (shuttingDown) return;
+    logBridgeMessage("chrome-devtools-mcp connection closed; shutting down");
+    void shutdown();
+  };
+
   // Kill our entire process group on exit so chrome-devtools-mcp children
   // don't survive as orphans. The bridge is spawned with detached:true,
   // making it a process group leader — all children share our PGID.

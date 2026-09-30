@@ -155,7 +155,7 @@ In URL-only shared mode, the bridge uses Streamable HTTP directly instead:
 ```
 
 - **Persistent bridge** — a detached process keeps the selected MCP session alive across commands, so Chrome doesn't restart every invocation
-- **Auto-lifecycle** — the bridge starts on first command, writes a PID file to `~/.chrome-devtools-axi/bridge.pid`, and is reused only after a deep health check (`/health?deep=1`, one CDP `list_pages`). A bridge whose browser has died is terminated and respawned. Startup waits until `CHROME_DEVTOOLS_AXI_BRIDGE_TIMEOUT_MS` (default 30s). On stop, the bridge kills its process group; teardown escalates SIGTERM to SIGKILL, and only when `ps` confirms that PID is a bridge, so stdio-launched chrome-devtools-mcp and Chrome children are reaped.
+- **Auto-lifecycle** — the bridge starts on first command, writes a PID file to `~/.chrome-devtools-axi/bridge.pid`, and is reused only after a deep health check (`/health?deep=1`, one CDP `list_pages`). A bridge whose browser has died is terminated and respawned. Startup waits until `CHROME_DEVTOOLS_AXI_BRIDGE_TIMEOUT_MS` (default 30s). On stop, the bridge kills its process group; teardown escalates SIGTERM to SIGKILL, and only when `ps` confirms that PID is a bridge, so stdio-launched chrome-devtools-mcp and Chrome children are reaped. A bridge also shuts itself down when its stdio chrome-devtools-mcp process exits, since it can serve nothing without it.
 - **Snapshot parsing** — accessibility tree snapshots are extracted and analyzed for interactive elements (`uid=` refs)
 - **TOON encoding** — structured metadata uses [TOON format](https://www.npmjs.com/package/@toon-format/toon) for compact, token-efficient output
 
