@@ -420,6 +420,13 @@ The default (unset) session keeps port 9224 and the legacy state paths below.
 Do not export `CHROME_DEVTOOLS_AXI_PORT` globally when running concurrent sessions: it overrides the per-session derived port and forces every session onto the same port, so the second session fails to start - its bridge cannot bind the already-taken port, and the first session's bridge is rejected as a mismatch rather than silently shared.
 Rely on the per-session default ports instead, or set `CHROME_DEVTOOLS_AXI_PORT` only inline per command.
 
+State is stored in `~/.chrome-devtools-axi/` (named sessions nest under `sessions/<name>/`):
+
+| File                  | Purpose                               |
+| --------------------- | ------------------------------------- |
+| `bridge.pid`          | PID and port of the running bridge    |
+| `snapshot-generation` | Counter used to detect stale uid refs |
+
 ### Idle timeout
 
 A bridge runs until `chrome-devtools-axi stop` by default, because it is detached from the shell or agent session that started it.
@@ -434,13 +441,6 @@ Every command that talks to the browser counts as activity; the ambient page sum
 The next command after a shutdown starts a fresh bridge, so pages and state of a browser this tool launched are lost, as after `stop`.
 Unset, blank, or `0` keeps the default; values below `1000` are raised to `1000`, and a value that is not a whole number of milliseconds is ignored.
 A running bridge keeps the setting it started with.
-
-State is stored in `~/.chrome-devtools-axi/` (named sessions nest under `sessions/<name>/`):
-
-| File                  | Purpose                               |
-| --------------------- | ------------------------------------- |
-| `bridge.pid`          | PID and port of the running bridge    |
-| `snapshot-generation` | Counter used to detect stale uid refs |
 
 ## Development
 
