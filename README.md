@@ -437,7 +437,7 @@ export CHROME_DEVTOOLS_AXI_IDLE_TIMEOUT_MS=1800000   # 30 minutes
 ```
 
 A bridge started with it set shuts itself down, together with the chrome-devtools-mcp process and any browser it launched, once that long passes with no command and no request in flight.
-Every command that talks to the browser counts as activity; the ambient page summary that `setup hooks` shows at agent session start does not, so starting new agent sessions does not keep an abandoned bridge alive.
+Every command that talks to the browser counts as activity except the home view: bare `chrome-devtools-axi`, which is also the page summary `setup hooks` shows at agent session start, does not renew the timeout, so starting new agent sessions does not keep an abandoned bridge alive.
 The next command after a shutdown starts a fresh bridge, so pages and state of a browser this tool launched are lost, as after `stop`.
 Unset, blank, or `0` keeps the default; values below `1000` are raised to `1000`, and a value that is not a whole number of milliseconds is ignored.
 A running bridge keeps the setting it started with.
